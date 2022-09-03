@@ -9,7 +9,8 @@ class KeySync {
     var base64PrivateKey = CryptoJS.enc.Utf8.parse(
       `${filename}${process.env.PRIVATE_SECRET}`
     ).toString(CryptoJS.enc.Base64);
-
+    console.log(`${filename}${process.env.PRIVATE_SECRET}`);
+    console.log(base64PrivateKey);
     var base64PublicKey = CryptoJS.enc.Utf8.parse(
       `${filename}${process.env.PUBLIC_SECRET}`
     ).toString(CryptoJS.enc.Base64);

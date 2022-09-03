@@ -17,7 +17,7 @@ app.use(express.static("views"));
 app.set("views", "./views");
 app.set("view engine", "ejs");
 
-const { save, remove, download } = new FileHandling();
+const { save, remove, download, removeUnusedFiles } = new FileHandling();
 const { CreateKeyPair } = new KeySync();
 
 app.post("/files", save, CreateKeyPair, async (req, res) => {

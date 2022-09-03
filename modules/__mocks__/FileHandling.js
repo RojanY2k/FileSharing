@@ -53,7 +53,7 @@ class FileHandling {
         );
         next();
       } else res.status(500).json(status);
-    } else res.status(500).json({ message: "max upload for the day reached" });
+    } else res.status(401).json({ message: "max upload for the day reached" });
   };
 
   remove = async (req, res, next) => {
@@ -80,31 +80,135 @@ class FileHandling {
 
   download = async (req, res, next) => {
     try {
-      if (await UDFilter.checkMax(false)) {
-        const publicKey = req.params.publicKey;
-        let isExist = await VerifyToken(
-          publicKey,
-          process.env.MOCK_PUBLIC_KEY_PATH
-        );
+      const publicKey = req.params.publicKey;
+      let isExist = await VerifyToken(
+        publicKey,
+        process.env.MOCK_PUBLIC_KEY_PATH
+      );
 
-        if (isExist) {
+      if (isExist) {
+        if (await UDFilter.checkMax(false)) {
           const filename = await TransformKeyToFilename(
             publicKey,
             process.env.PUBLIC_SECRET
           );
+          if (!fs.existsSync(`${process.env.MOCK_FOLDER}${filename}`))
+            return res.status(404).json({ message: "File not found" });
           var mimetype = mime.getType(filename);
           // Write File Upload
           await UDFilter.writeFile(
             `DOWNLOAD ${new Date().toISOString().slice(0, 10)} ${filename}`
           );
           res.status(200).send({ mimetype: mimetype });
-        } else {
-          res.status(404).json({ message: "File not found" });
-        }
-      } else
-        res.status(500).json({ message: "max download for the day reached" });
+        } else
+          res.status(401).json({ message: "max download for the day reached" });
+      } else {
+        res.status(404).json({ message: "File not found" });
+      }
     } catch (error) {
       res.status(500).json({ error });
+    }
+  };
+
+  removeUnusedFiles = async () => {
+    try {
+      let currentDate = new Date();
+      let minDate = new Date(
+        currentDate.setDate(
+          currentDate.getDate() - process.env.INACTIVE_FILES_IN_DAYS
+        )
+      );
+
+      let dateThreshold = minDate.toISOString().slice(0, 10);
+      const keys = await new Promise(async (resolve, reject) => {
+        await fs.readFile(
+          process.env.UDIPS,
+          "utf8",
+          async function (err, data) {
+            // Get Data to retain
+            let rows = data
+              .split("\n")
+              .filter(Boolean)
+              .filter((row) => {
+                // Get Valid Files
+                let dateOfFile = row.split(" ")[1].trim();
+                return new Date(dateThreshold) <= new Date(dateOfFile);
+              });
+
+            //   Overwrite UDFiles.txt
+            await fs.writeFileSync(process.env.UDIPS, rows.join("\n"));
+
+            //   Return Private Prevailing Keys
+            var base64PrivateKeys = rows
+              .map((row) => {
+                return CryptoJS.enc.Utf8.parse(
+                  `${row.split(" ")[2].trim()}${
+                    process.env.MOCK_PRIVATE_SECRET
+                  }`
+                )
+                  .toString(CryptoJS.enc.Base64)
+                  .trim();
+              })
+              .filter(Boolean);
+
+            //   Return Public Prevailing Keys
+            var base64PublicKeys = rows
+              .map((row) => {
+                return CryptoJS.enc.Utf8.parse(
+                  `${row.split(" ")[2].trim()}${process.env.MOCK_PUBLIC_SECRET}`
+                )
+                  .toString(CryptoJS.enc.Base64)
+                  .trim();
+              })
+              .filter(Boolean);
+
+            resolve([...base64PublicKeys, ...base64PrivateKeys]);
+          }
+        );
+      });
+
+      let updatedPrivateKeys = await new Promise(async (resolve, reject) => {
+        await fs.readFile(
+          process.env.MOCK_PRIVATE_KEY_PATH,
+          "utf8",
+          async function (err, data) {
+            resolve(
+              data.split("\n").filter((row) => keys.includes(row.trim()))
+            );
+          }
+        );
+      });
+
+      let updatedPublicKeys = await new Promise(async (resolve, reject) => {
+        await fs.readFile(
+          process.env.MOCK_PUBLIC_KEY_PATH,
+          "utf8",
+          async function (err, data) {
+            resolve(
+              data.split("\n").filter((row) => keys.includes(row.trim()))
+            );
+          }
+        );
+      });
+
+      await fs.writeFileSync(
+        process.env.MOCK_PRIVATE_KEY_PATH,
+        updatedPrivateKeys.join("\n")
+      );
+      await fs.writeFileSync(
+        process.env.MOCK_PUBLIC_KEY_PATH,
+        updatedPublicKeys.join("\n")
+      );
+
+      return {
+        status: 200,
+        message: "Cleaned",
+      };
+    } catch (error) {
+      return {
+        status: 500,
+        error: error,
+      };
     }
   };
 }
