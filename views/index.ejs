@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>Upload File</h1>
+    <input id="avatar" type="file" name="avatar" />
+    <button id="upload-button" onclick="uploadFile()"> Upload </button>
+    <p>Private Key: <span id="private-key"></span></p>
+    <p>Public Key: <span id="public-key"></span></p>
+    <br><br><br>
+    
+    <h1>Download File</h1>
+    <input id="download" type="text" name="download" />
+    <button id="download-button" onclick="downloadFile()"> Download </button>
+    <br><br><br>
+    
+    <h1>Remove File</h1>
+    <input id="delete" type="text" name="delete" />
+    <button id="delete-button" onclick="deleteFile()"> Remove </button>
+
+    <script>
+        async function uploadFile() {
+            console.log("HERE")
+            let formData = new FormData();           
+            formData.append("avatar", avatar.files[0]);
+            let response = await fetch('/files/', {
+              method: "POST", 
+              body: formData
+            }).then(function(response) {
+                return response.text();
+            }).then(function(data) {
+                return JSON.parse(data);
+            });  
+            document.getElementById("private-key").textContent = response.privateKey
+            document.getElementById("public-key").textContent = response.publicKey
+        }
+
+        async function downloadFile() {
+            let response = await fetch(`/files/${document.getElementById("download").value}`, {
+              method: "GET"
+            })
+            .then( res => res.blob() )
+            .then( blob => {
+                var file = window.URL.createObjectURL(blob);
+                window.open(file, '_blank').focus();
+            });
+        }
+
+        async function deleteFile() {
+            let response = await fetch(`/files/${document.getElementById("delete").value}`, {
+              method: "DELETE"
+            }).then(function(response) {
+                return response.text();
+            }).then(function(data) {
+                return JSON.parse(data);
+            });  
+        }
+    </script>
+</body>
+</html>
