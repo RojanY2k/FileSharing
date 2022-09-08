@@ -10,20 +10,24 @@ export default {
         process.env.MOCK_UDIPS,
         "utf8",
         async function (err, data) {
-          let IPEncrypt = CryptoJS.MD5(ip.address());
-          let currentDate = new Date().toISOString().slice(0, 10);
-          let rows = data
-            .split("\n")
-            .filter(Boolean)
-            .map((row) => row.trim());
-          resolve(
-            rows.filter(
-              (row) =>
-                row.includes(IPEncrypt) &&
-                row.includes(currentDate) &&
-                row.includes(type)
-            ).length
-          );
+          try {
+            let IPEncrypt = CryptoJS.MD5(ip.address());
+            let currentDate = new Date().toISOString().slice(0, 10);
+            let rows = data
+              .split("\n")
+              .filter(Boolean)
+              .map((row) => row.trim());
+            resolve(
+              rows.filter(
+                (row) =>
+                  row.includes(IPEncrypt) &&
+                  row.includes(currentDate) &&
+                  row.includes(type)
+              ).length
+            );
+          } catch (error) {
+            resolve(0);
+          }
         }
       );
     });
